@@ -1,11 +1,12 @@
 /** @param {NS} ns **/
 export async function main(ns) {
-    const RAM_SIZE = 1024; // Adjust the server RAM size as needed
+    const RAM_SIZE = 1024; // Default RAM size for new servers
     const TARGET_FILE = "best-target.txt";
     const SLEEP_INTERVAL = 60000; // 1 minute
     const GITHUB_URL = "https://raw.githubusercontent.com/DensenDeluxe/BitBurner-Automation-Script/main/main-automation.js";
     const LOCAL_SCRIPT = "master-automation.js";
     const TEMP_SCRIPT = "temp-automation.js";
+    const log = async (script, message) => ns.run("log-output.js", 1, script, message);
 
     const SCRIPTS = [
         "network-scan.js",
@@ -36,6 +37,8 @@ export async function main(ns) {
     ];
 
     const scriptsContent = {
+        // Define all necessary scripts as shown in the previous steps.
+        // Ensure they are error-free and compatible with the game's latest version.
         "network-scan.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "network-scan", message);
@@ -305,13 +308,13 @@ export async function main(ns) {
             }
             while (ns.hacknet.getCoreUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeCore(i, 1);
-                nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
                 await log("Upgraded Hacknet node " + i + " cores");
+                nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
             }
             while (ns.hacknet.getCacheUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeCache(i, 1);
-                nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
                 await log("Upgraded Hacknet node " + i + " cache");
+                nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
             }
         }
 
@@ -495,7 +498,7 @@ export async function main(ns) {
         await ns.sleep(1000); // Sleep briefly between crime checks
     }
 }`,
-        "stock-trading.js": `/** @param {NS} ns **/
+        "stock-trading.js": `/** @param {NS} ns) **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "stock-trading", message);
     if (!ns.getPlayer().hasTixApiAccess || !ns.getPlayer().has4SDataTixApi) {
