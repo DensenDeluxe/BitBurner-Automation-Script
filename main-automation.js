@@ -205,7 +205,7 @@ export async function main(ns) {
         await ns.sleep(60000);
     }
 }`,
-        "university-study.js": `/** @param {NS} ns **/
+        "university-study.js": `/** @param {NS} ns) **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "university-study", message);
     const course = "Algorithms"; // Default course
@@ -433,9 +433,35 @@ export async function main(ns) {
         "watchdog.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "watchdog", message);
+    const SCRIPTS = [
+        "network-scan.js",
+        "hack-template.js",
+        "deploy-hack.js",
+        "purchase-servers.js",
+        "upgrade-servers.js",
+        "automate-purchase.js",
+        "company-work.js",
+        "faction-work.js",
+        "bladeburner.js",
+        "university-study.js",
+        "travel.js",
+        "casino.js",
+        "create-exe.js",
+        "hacknet-management.js",
+        "singularity-management.js",
+        "gym-management.js",
+        "ipvgo-subnet-management.js",
+        "crime.js",
+        "stock-trading.js",
+        "script-optimization.js",
+        "task-monitor.js",
+        "stat-monitor.js",
+        "find-best-target.js"
+    ];
+    
     const scriptPids = {};
 
-    // Function to start a script if not running
+    // Funktion zum Starten eines Skripts, falls nicht bereits ausgeführt
     const startScript = async (script, ...args) => {
         if (!scriptPids[script] || !ns.isRunning(script, "home", ...args)) {
             if (scriptPids[script]) ns.kill(scriptPids[script]);
@@ -444,12 +470,12 @@ export async function main(ns) {
         }
     };
 
-    // Monitor and restart scripts
+    // Skripte überwachen und neu starten, falls erforderlich
     while (true) {
         for (const script of SCRIPTS) {
             await startScript(script);
         }
-        await ns.sleep(SLEEP_INTERVAL); // Check every minute
+        await ns.sleep(60000); // Überprüft jede Minute
     }
 }`,
         "crime.js": `/** @param {NS} ns **/
