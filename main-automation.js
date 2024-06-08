@@ -3,7 +3,7 @@ export async function main(ns) {
     // Konfiguration
     const ram = 1024; // Anpassen der Server-RAM-Größe nach Bedarf
     const targetFile = "best-target.txt";
-
+    
     // Skript-Namen
     const scriptNames = [
         "network-scan.js",
