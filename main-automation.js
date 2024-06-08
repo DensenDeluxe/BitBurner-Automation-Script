@@ -1,11 +1,12 @@
 /** @param {NS} ns **/
 export async function main(ns) {
-    // Konfiguration
-    const ram = 1024; // Anpassen der Server-RAM-Größe nach Bedarf
-    const targetFile = "best-target.txt";
-    
-    // Skript-Namen
-    const scriptNames = [
+    const RAM_SIZE = 1024; // Adjust the server RAM size as needed
+    const TARGET_FILE = "best-target.txt";
+    const SLEEP_INTERVAL = 60000; // 1 minute
+    const GITHUB_URL = "https://raw.githubusercontent.com/DensenDeluxe/BitBurner-Automation-Script/main/main-automation.js";
+    const LOCAL_SCRIPT = "master-automation.js";
+
+    const SCRIPTS = [
         "network-scan.js",
         "hack-template.js",
         "deploy-hack.js",
@@ -33,19 +34,19 @@ export async function main(ns) {
         "find-best-target.js"
     ];
 
-    // Skript-Inhalte
-    const scriptContents = {
-        "network-scan.js": `/** @param {NS} ns **/
+    const writeScripts = async () => {
+        const scripts = {
+            "network-scan.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "network-scan", message); };
+    const log = async message => ns.run("log-output.js", 1, "network-scan", message);
     let servers = ["home"];
-    let scanned = [];
-    let data = [];
+    let scanned = new Set();
+    const data = [];
 
-    while (servers.length > 0) {
-        let server = servers.pop();
-        if (!scanned.includes(server)) {
-            scanned.push(server);
+    while (servers.length) {
+        const server = servers.pop();
+        if (!scanned.has(server)) {
+            scanned.add(server);
             servers = servers.concat(ns.scan(server));
             data.push(server);
         }
@@ -53,9 +54,9 @@ export async function main(ns) {
     await ns.write("network-scan-output.txt", data.join(","), "w");
     await log("Completed network scan.");
 }`,
-        "hack-template.js": `/** @param {NS} ns **/
+            "hack-template.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "hack-template", message); };
+    const log = async message => ns.run("log-output.js", 1, "hack-template", message);
     const target = ns.args[0];
 
     if (!target) {
@@ -64,7 +65,7 @@ export async function main(ns) {
     }
 
     if (!ns.serverExists(target)) {
-        await log("Invalid target server: " + target);
+        await log(\`Invalid target server: \${target}\`);
         return;
     }
 
@@ -74,86 +75,86 @@ export async function main(ns) {
     while (true) {
         if (ns.getServerSecurityLevel(target) > securityThresh) {
             await ns.weaken(target);
-            await log("Weakened " + target);
+            await log(\`Weakened \${target}\`);
         } else if (ns.getServerMoneyAvailable(target) < moneyThresh) {
             await ns.grow(target);
-            await log("Grew " + target);
+            await log(\`Grew \${target}\`);
         } else {
             await ns.hack(target);
-            await log("Hacked " + target);
+            await log(\`Hacked \${target}\`);
         }
     }
 }`,
-        "deploy-hack.js": `/** @param {NS} ns **/
+            "deploy-hack.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "deploy-hack", message); };
+    const log = async message => ns.run("log-output.js", 1, "deploy-hack", message);
     const script = ns.args[0];
     const target = ns.args[1];
     const servers = await ns.read("network-scan-output.txt").split(",");
 
-    for (let server of servers) {
+    for (const server of servers) {
         if (ns.hasRootAccess(server)) {
-            const ram = ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
-            const threads = Math.floor(ram / ns.getScriptRam(script));
+            const availableRam = ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
+            const threads = Math.floor(availableRam / ns.getScriptRam(script));
             if (threads > 0) {
                 if (!(await ns.scp(script, server))) {
-                    await log("Failed to SCP " + script + " to " + server);
+                    await log(\`Failed to SCP \${script} to \${server}\`);
                 }
                 ns.exec(script, server, threads, target);
-                await log("Deployed " + script + " to " + server + " with " + threads + " threads");
+                await log(\`Deployed \${script} to \${server} with \${threads} threads\`);
             }
         }
     }
 }`,
-        "purchase-servers.js": `/** @param {NS} ns **/
+            "purchase-servers.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "purchase-servers", message); };
+    const log = async message => ns.run("log-output.js", 1, "purchase-servers", message);
     const ram = ns.args[0];
     const maxServers = ns.getPurchasedServerLimit();
     const prefix = "pserv-";
 
     for (let i = 0; i < maxServers; i++) {
         if (ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(ram)) {
-            let hostname = ns.purchaseServer(prefix + i, ram);
-            await log("Purchased server: " + hostname);
+            const hostname = ns.purchaseServer(\`\${prefix}\${i}\`, ram);
+            await log(\`Purchased server: \${hostname}\`);
         }
     }
 }`,
-        "upgrade-servers.js": `/** @param {NS} ns **/
+            "upgrade-servers.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "upgrade-servers", message); };
+    const log = async message => ns.run("log-output.js", 1, "upgrade-servers", message);
     const ram = ns.args[0];
     const prefix = "pserv-";
 
-    for (let server of ns.getPurchasedServers()) {
+    for (const server of ns.getPurchasedServers()) {
         if (ns.getServerMaxRam(server) < ram && ns.getServerMoneyAvailable("home") > ns.getPurchasedServerCost(ram)) {
             ns.killall(server);
             ns.deleteServer(server);
-            let hostname = ns.purchaseServer(prefix + server.split('-')[1], ram);
-            await log("Upgraded server: " + hostname);
+            const hostname = ns.purchaseServer(\`\${prefix}\${server.split('-')[1]}\`, ram);
+            await log(\`Upgraded server: \${hostname}\`);
         }
     }
 }`,
-        "automate-purchase.js": `/** @param {NS} ns **/
+            "automate-purchase.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "automate-purchase", message); };
+    const log = async message => ns.run("log-output.js", 1, "automate-purchase", message);
     const script = "hack-template.js";
     const ram = ns.args[0];
 
     while (true) {
         await ns.run("purchase-servers.js", 1, ram);
         await ns.sleep(10000);
-        const target = await ns.run("find-best-target.js");
+        await ns.run("find-best-target.js");
         await ns.sleep(2000);
         const bestTarget = await ns.read("best-target.txt");
         await ns.run("deploy-hack.js", 1, script, bestTarget);
-        await log("Automated purchase and deploy on target: " + bestTarget);
+        await log(\`Automated purchase and deploy on target: \${bestTarget}\`);
         await ns.sleep(60000);
     }
 }`,
-        "company-work.js": `/** @param {NS} ns **/
+            "company-work.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "company-work", message); };
+    const log = async message => ns.run("log-output.js", 1, "company-work", message);
     const company = ns.args[0];
 
     if (!ns.singularity) {
@@ -164,13 +165,13 @@ export async function main(ns) {
     while (true) {
         ns.singularity.applyToCompany(company, "Software");
         ns.singularity.workForCompany(company, true);
-        await log("Working for company: " + company);
+        await log(\`Working for company: \${company}\`);
         await ns.sleep(3600000); // Work for 1 hour
     }
 }`,
-        "faction-work.js": `/** @param {NS} ns **/
+            "faction-work.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "faction-work", message); };
+    const log = async message => ns.run("log-output.js", 1, "faction-work", message);
     const faction = ns.args[0];
     const workType = ns.args[1] || "hacking contracts";
 
@@ -181,13 +182,13 @@ export async function main(ns) {
 
     while (true) {
         ns.singularity.workForFaction(faction, workType, true);
-        await log("Working for faction: " + faction + " on " + workType);
+        await log(\`Working for faction: \${faction} on \${workType}\`);
         await ns.sleep(3600000); // Work for 1 hour
     }
 }`,
-        "bladeburner.js": `/** @param {NS} ns **/
+            "bladeburner.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "bladeburner", message); };
+    const log = async message => ns.run("log-output.js", 1, "bladeburner", message);
     const cities = ["Sector-12", "Aevum", "Chongqing", "New Tokyo", "Ishima", "Volhaven"];
     let currentCity = 0;
 
@@ -195,44 +196,44 @@ export async function main(ns) {
         if (ns.bladeburner.getStamina()[0] / ns.bladeburner.getStamina()[1] < 0.5) {
             ns.bladeburner.goToCity(cities[currentCity]);
             ns.bladeburner.startAction("General", "Training");
-            await log("Training in " + cities[currentCity]);
+            await log(\`Training in \${cities[currentCity]}\`);
             currentCity = (currentCity + 1) % cities.length;
         } else {
             ns.bladeburner.startAction("Operation", "Assassination");
-            await log("Performing assassination in " + ns.bladeburner.getCity());
+            await log(\`Performing assassination in \${ns.bladeburner.getCity()}\`);
         }
         await ns.sleep(60000);
     }
 }`,
-        "university-study.js": `/** @param {NS} ns **/
+            "university-study.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "university-study", message); };
+    const log = async message => ns.run("log-output.js", 1, "university-study", message);
     const course = "Algorithms"; // Default course
     const university = "Rothman University"; // Default university
 
     while (true) {
         ns.singularity.universityCourse(university, course, true);
-        await log("Studying " + course + " at " + university);
+        await log(\`Studying \${course} at \${university}\`);
         await ns.sleep(3600000); // Study for 1 hour
     }
 }`,
-        "travel.js": `/** @param {NS} ns **/
+            "travel.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "travel", message); };
+    const log = async message => ns.run("log-output.js", 1, "travel", message);
     const cities = ["Sector-12", "Aevum", "Chongqing", "New Tokyo", "Ishima", "Volhaven"];
     let currentCity = 0;
 
     while (true) {
         ns.travelToCity(cities[currentCity]);
-        await log("Travelled to: " + cities[currentCity]);
+        await log(\`Travelled to: \${cities[currentCity]}\`);
         ns.run("ipvgo-subnet-management.js"); // Start subnet management in each city
         currentCity = (currentCity + 1) % cities.length;
         await ns.sleep(3600000); // Travel every hour
     }
 }`,
-        "casino.js": `/** @param {NS} ns **/
+            "casino.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "casino", message); };
+    const log = async message => ns.run("log-output.js", 1, "casino", message);
     while (true) {
         try {
             if (ns.gambling(true)) {
@@ -241,29 +242,29 @@ export async function main(ns) {
                 await log("Lost at the casino.");
             }
         } catch (e) {
-            await log("Casino function not available: " + e);
+            await log(\`Casino function not available: \${e}\`);
         }
         await ns.sleep(60000); // Gamble every minute
     }
 }`,
-        "create-exe.js": `/** @param {NS} ns **/
+            "create-exe.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "create-exe", message); };
+    const log = async message => ns.run("log-output.js", 1, "create-exe", message);
     const programs = ["BruteSSH.exe", "FTPCrack.exe", "relaySMTP.exe", "HTTPWorm.exe", "SQLInject.exe", "DeepscanV1.exe", "DeepscanV2.exe", "ServerProfiler.exe"];
-    for (let program of programs) {
+    for (const program of programs) {
         while (true) {
             if (!ns.fileExists(program, "home")) {
                 ns.createProgram(program);
-                await log("Creating program: " + program);
+                await log(\`Creating program: \${program}\`);
                 break;
             }
             await ns.sleep(3600000); // Check every hour
         }
     }
 }`,
-        "hacknet-management.js": `/** @param {NS} ns **/
+            "hacknet-management.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "hacknet-management", message); };
+    const log = async message => ns.run("log-output.js", 1, "hacknet-management", message);
     const budgetFraction = 0.1; // Fraction of money to be used for Hacknet upgrades
     let lastBalance = ns.getServerMoneyAvailable("home");
 
@@ -295,22 +296,22 @@ export async function main(ns) {
             while (ns.hacknet.getLevelUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeLevel(i, 1);
                 nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
-                await log("Upgraded Hacknet node " + i + " level");
+                await log(\`Upgraded Hacknet node \${i} level\`);
             }
             while (ns.hacknet.getRamUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeRam(i, 1);
                 nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
-                await log("Upgraded Hacknet node " + i + " RAM");
+                await log(\`Upgraded Hacknet node \${i} RAM\`);
             }
             while (ns.hacknet.getCoreUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeCore(i, 1);
                 nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
-                await log("Upgraded Hacknet node " + i + " cores");
+                await log(\`Upgraded Hacknet node \${i} cores\`);
             }
             while (ns.hacknet.getCacheUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeCache(i, 1);
                 nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
-                await log("Upgraded Hacknet node " + i + " cache");
+                await log(\`Upgraded Hacknet node \${i} cache\`);
             }
         }
 
@@ -319,9 +320,9 @@ export async function main(ns) {
         }
     }
 }`,
-        "singularity-management.js": `/** @param {NS} ns **/
+            "singularity-management.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "singularity-management", message); };
+    const log = async message => ns.run("log-output.js", 1, "singularity-management", message);
     if (!ns.singularity) {
         await log("Singularity API is not available. Ensure the API is unlocked.");
         return;
@@ -332,13 +333,13 @@ export async function main(ns) {
         const factions = ns.singularity.checkFactionInvitations();
         for (const faction of factions) {
             ns.singularity.joinFaction(faction);
-            await log("Joined faction: " + faction);
+            await log(\`Joined faction: \${faction}\`);
         }
 
         const programs = ["BruteSSH.exe", "FTPCrack.exe", "relaySMTP.exe", "HTTPWorm.exe", "SQLInject.exe", "DeepscanV1.exe", "DeepscanV2.exe", "ServerProfiler.exe", "AutoLink.exe"];
         for (const program of programs) {
             if (!ns.fileExists(program, "home") && ns.singularity.purchaseProgram(program)) {
-                await log("Purchased program: " + program);
+                await log(\`Purchased program: \${program}\`);
             }
         }
 
@@ -350,7 +351,7 @@ export async function main(ns) {
                     const shares = Math.floor((ns.getServerMoneyAvailable("home") / price) / 100) * 100;
                     if (shares > 0) {
                         ns.stock.buy(symbol, shares);
-                        await log("Bought shares of " + symbol + ": " + shares);
+                        await log(\`Bought shares of \${symbol}: \${shares}\`);
                     }
                 }
             }
@@ -372,7 +373,7 @@ export async function main(ns) {
             for (const aug of augs) {
                 if (!ownedAugs.includes(aug) && ns.getServerMoneyAvailable("home") > ns.singularity.getAugmentationCost(aug)[0]) {
                     ns.singularity.purchaseAugmentation(faction, aug);
-                    await log("Purchased augmentation: " + aug + " from " + faction);
+                    await log(\`Purchased augmentation: \${aug} from \${faction}\`);
                 }
             }
         }
@@ -387,9 +388,9 @@ export async function main(ns) {
         await ns.sleep(60000); // Check every minute
     }
 }`,
-        "gym-management.js": `/** @param {NS} ns **/
+            "gym-management.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "gym-management", message); };
+    const log = async message => ns.run("log-output.js", 1, "gym-management", message);
     const gym = "Powerhouse Gym";
     const skills = ["Strength", "Defense", "Dexterity", "Agility"];
     const skillGoals = {
@@ -404,72 +405,56 @@ export async function main(ns) {
         const currentSkill = skills[currentSkillIndex];
         if (ns.getPlayer()[currentSkill.toLowerCase()] < skillGoals[currentSkill]) {
             ns.singularity.gymWorkout(gym, currentSkill, true);
-            await log("Training " + currentSkill + " at " + gym);
+            await log(\`Training \${currentSkill} at \${gym}\`);
         } else {
             currentSkillIndex = (currentSkillIndex + 1) % skills.length; // Move to the next skill
         }
         await ns.sleep(60000); // Train for 1 minute before checking again
     }
 }`,
-        "ipvgo-subnet-management.js": `/** @param {NS} ns **/
+            "ipvgo-subnet-management.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "ipvgo-subnet-management", message); };
+    const log = async message => ns.run("log-output.js", 1, "ipvgo-subnet-management", message);
     while (true) {
         const subnets = ns.scan("home"); // Replace "home" with the specific node if needed
         for (const subnet of subnets) {
             if (ns.hasRootAccess(subnet)) {
-                await log("Managing subnet: " + subnet);
+                await log(\`Managing subnet: \${subnet}\`);
                 // Perform subnet-specific tasks here
                 // Example: Deploy hacking scripts or perform subnet-specific actions
                 // You can extend this to perform more complex subnet management
             } else {
-                await log("No root access to subnet: " + subnet);
+                await log(\`No root access to subnet: \${subnet}\`);
             }
         }
         await ns.sleep(300000); // Check every 5 minutes
     }
 }`,
-        "watchdog.js": `/** @param {NS} ns **/
+            "watchdog.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "watchdog", message); };
+    const log = async message => ns.run("log-output.js", 1, "watchdog", message);
     const scriptPids = {};
 
     // Function to start a script if not running
-    async function startScript(script, ...args) {
-        if (scriptPids[script] === undefined || !ns.isRunning(script, "home", ...args)) {
+    const startScript = async (script, ...args) => {
+        if (!scriptPids[script] || !ns.isRunning(script, "home", ...args)) {
             if (scriptPids[script]) ns.kill(scriptPids[script]);
             scriptPids[script] = ns.run(script, 1, ...args);
-            await log("Started " + script + " with PID " + scriptPids[script]);
+            await log(\`Started \${script} with PID \${scriptPids[script]}\`);
         }
-    }
+    };
 
     // Monitor and restart scripts
     while (true) {
-        await startScript("network-scan.js");
-        await startScript("automate-purchase.js", ram);
-        await startScript("hacknet-management.js");
-        await startScript("singularity-management.js");
-        await startScript("company-work.js", "MegaCorp");
-        await startScript("faction-work.js", "CyberSec", "hacking contracts");
-        await startScript("bladeburner.js");
-        await startScript("university-study.js");
-        await startScript("travel.js");
-        await startScript("casino.js");
-        await startScript("create-exe.js");
-        await startScript("gym-management.js");
-        await startScript("ipvgo-subnet-management.js");
-        await startScript("crime.js");
-        await startScript("stock-trading.js");
-        await startScript("script-optimization.js");
-        await startScript("task-monitor.js");
-        await startScript("stat-monitor.js");
-
-        await ns.sleep(60000); // Check every minute
+        for (const script of SCRIPTS) {
+            await startScript(script);
+        }
+        await ns.sleep(SLEEP_INTERVAL); // Check every minute
     }
 }`,
-        "crime.js": `/** @param {NS} ns **/
+            "crime.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "crime", message); };
+    const log = async message => ns.run("log-output.js", 1, "crime", message);
     const crimes = ["shoplift", "rob store", "mug someone", "larceny", "deal drugs", "bond forgery", "trafficking arms", "homicide", "grand theft auto", "kidnap", "assassinate", "heist"];
     let currentCrime = 0;
 
@@ -477,16 +462,16 @@ export async function main(ns) {
         const crime = crimes[currentCrime];
         if (ns.singularity.getCrimeChance(crime) > 0.5) {
             ns.singularity.commitCrime(crime);
-            await log("Committing crime: " + crime);
+            await log(\`Committing crime: \${crime}\`);
             await ns.sleep(ns.singularity.getCrimeStats(crime).time + 1000); // Wait for the crime to complete
         }
         currentCrime = (currentCrime + 1) % crimes.length; // Move to the next crime
         await ns.sleep(1000); // Sleep briefly between crime checks
     }
 }`,
-        "stock-trading.js": `/** @param {NS} ns **/
+            "stock-trading.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "stock-trading", message); };
+    const log = async message => ns.run("log-output.js", 1, "stock-trading", message);
     if (!ns.getPlayer().hasTixApiAccess || !ns.getPlayer().has4SDataTixApi) {
         await log("Stock market API not available. Skipping stock trading.");
         return;
@@ -506,7 +491,7 @@ export async function main(ns) {
                     const purchaseCost = ns.stock.buy(stock, shares);
                     if (purchaseCost > 0) {
                         positions.push({ stock, shares });
-                        await log("Bought " + shares + " shares of " + stock);
+                        await log(\`Bought \${shares} shares of \${stock}\`);
                     }
                 }
             }
@@ -518,16 +503,16 @@ export async function main(ns) {
             const profit = sellPrice * pos.shares - ns.stock.getPurchaseCost(pos.stock, pos.shares);
             if (profit > ns.stock.getPurchaseCost(pos.stock, pos.shares) * 0.1) {
                 ns.stock.sell(pos.stock, pos.shares);
-                await log("Sold " + pos.shares + " shares of " + pos.stock + " for a profit of " + profit);
+                await log(\`Sold \${pos.shares} shares of \${pos.stock} for a profit of \${profit}\`);
             }
         }
 
         await ns.sleep(60000); // Check every minute
     }
 }`,
-        "script-optimization.js": `/** @param {NS} ns **/
+            "script-optimization.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "script-optimization", message); };
+    const log = async message => ns.run("log-output.js", 1, "script-optimization", message);
     while (true) {
         await log("Starting script optimization...");
 
@@ -618,9 +603,9 @@ export async function main(ns) {
         await ns.sleep(600000); // Run optimization every 10 minutes
     }
 }`,
-        "task-monitor.js": `/** @param {NS} ns **/
+            "task-monitor.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "task-monitor", message); };
+    const log = async message => ns.run("log-output.js", 1, "task-monitor", message);
 
     while (true) {
         await log("Monitoring tasks...");
@@ -633,7 +618,7 @@ export async function main(ns) {
                 const favor = ns.singularity.getCompanyFavor(currentTask.companyName);
                 if (companyRep > 100000 && favor > 100) {
                     ns.singularity.stopWork();
-                    await log("Stopped working for company: " + currentTask.companyName);
+                    await log(\`Stopped working for company: \${currentTask.companyName}\`);
                 }
             }
         }
@@ -645,7 +630,7 @@ export async function main(ns) {
                 const factionRep = ns.singularity.getFactionRep(currentTask.factionName);
                 if (factionRep > 100000) {
                     ns.singularity.stopWork();
-                    await log("Stopped working for faction: " + currentTask.factionName);
+                    await log(\`Stopped working for faction: \${currentTask.factionName}\`);
                 }
             }
         }
@@ -664,7 +649,7 @@ export async function main(ns) {
                 for (const skill of skills) {
                     if (ns.getPlayer()[skill] > skillGoals[skill]) {
                         ns.singularity.stopWork();
-                        await log("Stopped gym workout for: " + skill);
+                        await log(\`Stopped gym workout for: \${skill}\`);
                         break;
                     }
                 }
@@ -688,7 +673,7 @@ export async function main(ns) {
             if (currentTask.type === "CRIME") {
                 if (ns.singularity.getCrimeChance(currentTask.crimeType) > 0.9) {
                     ns.singularity.stopWork();
-                    await log("Stopped committing crime: " + currentTask.crimeType);
+                    await log(\`Stopped committing crime: \${currentTask.crimeType}\`);
                 }
             }
         }
@@ -702,15 +687,14 @@ export async function main(ns) {
         await ns.sleep(30000); // Check every 30 seconds
     }
 }`,
-        "log-output.js": `/** @param {NS} ns **/
+            "log-output.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const scriptName = ns.args[0];
-    const message = ns.args[1];
+    const [scriptName, message] = ns.args;
     ns.tprint(\`[\${scriptName}] \${message}\`);
 }`,
-        "stat-monitor.js": `/** @param {NS} ns **/
+            "stat-monitor.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "stat-monitor", message); };
+    const log = async message => ns.run("log-output.js", 1, "stat-monitor", message);
 
     while (true) {
         const player = ns.getPlayer();
@@ -726,13 +710,13 @@ export async function main(ns) {
         // Evaluate and optimize hacking scripts
         if (ns.getServerSecurityLevel(target) > ns.getServerMinSecurityLevel(target) + 5) {
             ns.run("weaken.js", 1, target);
-            await log("Security high on " + target + ". Weakening.");
+            await log(\`Security high on \${target}. Weakening.\`);
         } else if (ns.getServerMoneyAvailable(target) < ns.getServerMaxMoney(target) * 0.75) {
             ns.run("grow.js", 1, target);
-            await log("Money low on " + target + ". Growing.");
+            await log(\`Money low on \${target}. Growing.\`);
         } else {
             ns.run("hack.js", 1, target);
-            await log("Hacking " + target);
+            await log(\`Hacking \${target}\`);
         }
 
         // Monitor and optimize training
@@ -740,7 +724,7 @@ export async function main(ns) {
             const gym = "Powerhouse Gym";
             const skill = player.strength < 500 ? "Strength" : player.defense < 500 ? "Defense" : player.dexterity < 500 ? "Dexterity" : "Agility";
             ns.singularity.gymWorkout(gym, skill, true);
-            await log("Training " + skill + " at " + gym);
+            await log(\`Training \${skill} at \${gym}\`);
         }
 
         // Monitor and optimize hacking experience
@@ -767,7 +751,7 @@ export async function main(ns) {
                     const shares = ns.stock.getPosition(stock)[0];
                     if (shares > 0) {
                         ns.stock.sell(stock, shares);
-                        await log("Sold shares of " + stock + " based on forecast: " + forecast);
+                        await log(\`Sold shares of \${stock} based on forecast: \${forecast}\`);
                     }
                 }
             }
@@ -782,9 +766,9 @@ export async function main(ns) {
         await ns.sleep(1000); // Check every second
     }
 }`,
-        "find-best-target.js": `/** @param {NS} ns **/
+            "find-best-target.js": `/** @param {NS} ns **/
 export async function main(ns) {
-    const log = async (message) => { ns.run("log-output.js", 1, "find-best-target", message); };
+    const log = async message => ns.run("log-output.js", 1, "find-best-target", message);
     const servers = await ns.read("network-scan-output.txt").split(",");
     let bestTarget = null;
     let bestProfit = 0;
@@ -806,39 +790,29 @@ export async function main(ns) {
 
     if (bestTarget) {
         await ns.write("best-target.txt", bestTarget, "w");
-        await log("Best target identified: " + bestTarget);
+        await log(\`Best target identified: \${bestTarget}\`);
     } else {
         await log("No valid target found. Exiting script.");
         ns.exit();
     }
 }`
+        };
+
+        for (const [name, content] of Object.entries(scripts)) {
+            await ns.write(name, content, "w");
+        }
     };
 
-    // Funktion zum Löschen alter Skripte
-    async function deleteOldScripts() {
-        for (const script of scriptNames) {
+    const deleteOldScripts = async () => {
+        for (const script of SCRIPTS) {
             if (ns.fileExists(script, "home")) {
                 ns.rm(script, "home");
-                ns.tprint("Deleted old script: " + script);
+                ns.tprint(\`Deleted old script: \${script}\`);
             }
         }
-    }
+    };
 
-    // Alte Skripte löschen
-    await deleteOldScripts();
-
-    // Alle Skripte schreiben
-    for (const [name, content] of Object.entries(scriptContents)) {
-        await ns.write(name, content, "w");
-    }
-
-    // Netzwerk scannen und Liste der Server abrufen
-    await ns.run("network-scan.js");
-    await ns.sleep(2000);
-    const servers = await ns.read("network-scan-output.txt").split(",");
-
-    // Helferfunktion zum Öffnen von Ports
-    function openPorts(server) {
+    const openPorts = server => {
         let openPorts = 0;
         if (ns.fileExists("BruteSSH.exe", "home")) { ns.brutessh(server); openPorts++; }
         if (ns.fileExists("FTPCrack.exe", "home")) { ns.ftpcrack(server); openPorts++; }
@@ -846,10 +820,37 @@ export async function main(ns) {
         if (ns.fileExists("HTTPWorm.exe", "home")) { ns.httpworm(server); openPorts++; }
         if (ns.fileExists("SQLInject.exe", "home")) { ns.sqlinject(server); openPorts++; }
         return openPorts;
-    }
+    };
 
-    // Root-Zugriff auf Server sicherstellen
-    for (let server of servers) {
+    const checkForUpdates = async () => {
+        try {
+            const response = await fetch(GITHUB_URL);
+            if (!response.ok) {
+                ns.tprint(`Failed to fetch script: ${response.statusText}`);
+                return;
+            }
+            const remoteContent = await response.text();
+            const localContent = await ns.read(LOCAL_SCRIPT);
+
+            if (remoteContent !== localContent) {
+                await ns.write(LOCAL_SCRIPT, remoteContent, "w");
+                ns.tprint("New version of the script detected. Restarting...");
+                ns.singularity.softReset(LOCAL_SCRIPT);
+            }
+        } catch (error) {
+            ns.tprint(`Error checking for updates: ${error.message}`);
+        }
+    };
+
+    // Initial setup
+    await deleteOldScripts();
+    await writeScripts();
+    await ns.run("network-scan.js");
+    await ns.sleep(2000);
+
+    const servers = await ns.read("network-scan-output.txt").split(",");
+
+    for (const server of servers) {
         if (!ns.hasRootAccess(server)) {
             try {
                 const portsRequired = ns.getServerNumPortsRequired(server);
@@ -857,52 +858,46 @@ export async function main(ns) {
                 if (portsOpened >= portsRequired) {
                     ns.nuke(server);
                 } else {
-                    ns.run("log-output.js", 1, "main", "Not enough ports to nuke " + server + ". Ports required: " + portsRequired + ", Ports opened: " + portsOpened);
+                    ns.run("log-output.js", 1, "main", \`Not enough ports to nuke \${server}. Ports required: \${portsRequired}, Ports opened: \${portsOpened}\`);
                 }
             } catch (error) {
-                ns.run("log-output.js", 1, "main", "Failed to gain root access to " + server + ": " + error);
+                ns.run("log-output.js", 1, "main", \`Failed to gain root access to \${server}: \${error}\`);
             }
         }
     }
 
-    // Server kaufen und Skripte deployen
-    await ns.run("automate-purchase.js", 1, ram);
+    await ns.run("automate-purchase.js", 1, RAM_SIZE);
     await ns.sleep(10000);
-
-    // Bestes Ziel initialisieren
     await ns.run("find-best-target.js");
     await ns.sleep(10000);
 
-    // Skripte auf allen Servern kopieren und ausführen
     for (const server of servers) {
         if (ns.hasRootAccess(server)) {
-            for (const script of scriptNames) {
+            for (const script of SCRIPTS) {
                 await ns.scp(script, server);
             }
         }
     }
 
-    // Haupt-Hack-Skript auf allen Servern ausführen
     for (const server of servers) {
         if (ns.hasRootAccess(server)) {
             const availableRam = ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
             const threads = Math.floor(availableRam / ns.getScriptRam("hack-template.js"));
-            const target = await ns.read(targetFile).trim();
+            const target = await ns.read(TARGET_FILE).trim();
             if (threads > 0 && target) {
                 ns.exec("hack-template.js", server, threads, target);
             }
         }
     }
 
-    // Watchdog starten
     ns.run("watchdog.js");
-
-    // Task-Monitor starten
     ns.run("task-monitor.js");
-
-    // Stat-Monitor starten
     ns.run("stat-monitor.js");
-
-    // Find-best-target Skript starten für dynamische Zielsuche
     ns.run("find-best-target.js");
+
+    // Check for updates every minute
+    while (true) {
+        await checkForUpdates();
+        await ns.sleep(SLEEP_INTERVAL);
+    }
 }
