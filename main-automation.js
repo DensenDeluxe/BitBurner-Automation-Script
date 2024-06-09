@@ -6,6 +6,7 @@ export async function main(ns) {
     const GITHUB_URL = "https://raw.githubusercontent.com/DensenDeluxe/BitBurner-Automation-Script/main/main-automation.js";
     const LOCAL_SCRIPT = "master-automation.js";
     const TEMP_SCRIPT = "temp-automation.js";
+    const PRIORITIES_FILE = "priorities.txt";
     const log = async (script, message) => ns.run("log-output.js", 1, script, message);
 
     const SCRIPTS = [
@@ -33,7 +34,8 @@ export async function main(ns) {
         "task-monitor.js",
         "log-output.js",
         "stat-monitor.js",
-        "find-best-target.js"
+        "find-best-target.js",
+        "menu.js"
     ];
 
     const scriptsContent = {
@@ -258,7 +260,7 @@ export async function main(ns) {
 
     while (true) {
         ns.singularity.universityCourse(university, course, true);
-        await log("Studying " + course + " at " + university);
+        await log("Studying " + course " at " + university);
         await ns.sleep(3600000); // Study for 1 hour
     }
 }`,
@@ -501,7 +503,8 @@ export async function main(ns) {
         "script-optimization.js",
         "task-monitor.js",
         "stat-monitor.js",
-        "find-best-target.js"
+        "find-best-target.js",
+        "menu.js"
     ];
     
     const scriptPids = {};
@@ -792,7 +795,7 @@ export async function main(ns) {
         }
 
         // Monitor and optimize training
-        if (player.strength < 500 || player.defense < 500 || player.dexterity < 500 || player.agility < 500) {
+        if (player.strength < 500 || player.defense < 500 || player dexterity < 500 || player agility < 500) {
             const gym = "Powerhouse Gym";
             const skill = player.strength < 500 ? "Strength" : player.defense < 500 ? "Defense" : player dexterity < 500 ? "Dexterity" : "Agility";
             ns.singularity.gymWorkout(gym, skill, true);
@@ -915,6 +918,50 @@ export async function main(ns) {
         }
     };
 
+    const readPriorities = async () => {
+        try {
+            const data = await ns.read(PRIORITIES_FILE);
+            return JSON.parse(data);
+        } catch (e) {
+            await log("main", "Error reading priorities file: " + e.message);
+            return null;
+        }
+    };
+
+    const runBasedOnPriorities = async (priorities) => {
+        if (!priorities) {
+            await log("main", "No valid priorities found.");
+            return;
+        }
+        // Running scripts based on priorities
+        const sortedTasks = Object.entries(priorities).sort(([, a], [, b]) => a - b);
+        for (const [task, priority] of sortedTasks) {
+            switch (task) {
+                case "hacking":
+                    await ns.run("hack-template.js", 1);
+                    break;
+                case "serverManagement":
+                    await ns.run("automate-purchase.js", 1, RAM_SIZE);
+                    break;
+                case "resourceManagement":
+                    await ns.run("hacknet-management.js", 1);
+                    await ns.run("stock-trading.js", 1);
+                    break;
+                case "skillManagement":
+                    await ns.run("gym-management.js", 1);
+                    await ns.run("university-study.js", 1);
+                    break;
+                case "specialTasks":
+                    await ns.run("bladeburner.js", 1);
+                    await ns.run("singularity-management.js", 1);
+                    break;
+                default:
+                    await log("main", `Unknown task: ${task}`);
+            }
+            await ns.sleep(2000); // Delay between starting tasks
+        }
+    };
+
     // Initial setup
     await deleteOldScripts();
     await writeScripts();
@@ -968,8 +1015,10 @@ export async function main(ns) {
     ns.run("stat-monitor.js");
     ns.run("find-best-target.js");
 
-    // Check for updates every minute
+    // Run the priority-based task execution
     while (true) {
+        const priorities = await readPriorities();
+        await runBasedOnPriorities(priorities);
         await checkForUpdates();
         await ns.sleep(SLEEP_INTERVAL);
     }
