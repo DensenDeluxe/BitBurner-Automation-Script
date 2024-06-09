@@ -37,7 +37,7 @@ export async function main(ns) {
     ];
 
     const scriptsContent = {
-        // Define all necessary scripts as shown below.
+        // Include all scripts as defined earlier, including the updated deploy-hack.js
         "network-scan.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "network-scan", message);
@@ -90,20 +90,39 @@ export async function main(ns) {
         "deploy-hack.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "deploy-hack", message);
+
+    // Validate and retrieve arguments
     const script = ns.args[0];
     const target = ns.args[1];
+    
+    // Ensure script name and target are defined and valid
+    if (!script || typeof script !== "string" || !ns.fileExists(script, "home")) {
+        await log(\`Invalid script name: \${script}\`);
+        ns.tprint(\`Error: Invalid script name: \${script}\`);
+        return;
+    }
+
+    if (!target || typeof target !== "string" || !ns.serverExists(target)) {
+        await log(\`Invalid target: \${target}\`);
+        ns.tprint(\`Error: Invalid target: \${target}\`);
+        return;
+    }
+
     const servers = await ns.read("network-scan-output.txt").split(",");
 
     for (const server of servers) {
         if (ns.hasRootAccess(server)) {
             const availableRam = ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
-            const threads = Math.floor(availableRam / ns.getScriptRam(script));
+            const scriptRam = ns.getScriptRam(script, "home");
+            const threads = Math.floor(availableRam / scriptRam);
+
             if (threads > 0) {
                 if (!(await ns.scp(script, server))) {
-                    await log("Failed to SCP " + script + " to " + server);
+                    await log(\`Failed to SCP \${script} to \${server}\`);
+                } else {
+                    ns.exec(script, server, threads, target);
+                    await log(\`Deployed \${script} to \${server} with \${threads} threads\`);
                 }
-                ns.exec(script, server, threads, target);
-                await log("Deployed " + script + " to " + server + " with " + threads + " threads");
             }
         }
     }
@@ -122,7 +141,7 @@ export async function main(ns) {
         }
     }
 }`,
-        "upgrade-servers.js": `/** @param {NS} ns **/
+        "upgrade-servers.js": `/** @param {NS} ns) **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "upgrade-servers", message);
     const ram = ns.args[0];
@@ -780,7 +799,7 @@ export async function main(ns) {
                     const shares = ns.stock.getPosition(stock)[0];
                     if (shares > 0) {
                         ns.stock.sell(stock, shares);
-                        await log("Sold shares of " + stock + " based on forecast: " + forecast);
+                        await log("Sold shares of " + stock based on forecast: " + forecast);
                     }
                 }
             }
