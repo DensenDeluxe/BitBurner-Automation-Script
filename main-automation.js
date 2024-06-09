@@ -37,7 +37,6 @@ export async function main(ns) {
     ];
 
     const scriptsContent = {
-        // Include all scripts as defined earlier, including the updated deploy-hack.js
         "network-scan.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "network-scan", message);
@@ -87,15 +86,12 @@ export async function main(ns) {
         }
     }
 }`,
-        "deploy-hack.js": `/** @param {NS} ns **/
+        "deploy-hack.js": `/** @param {NS} ns) **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "deploy-hack", message);
-
-    // Validate and retrieve arguments
     const script = ns.args[0];
     const target = ns.args[1];
-    
-    // Ensure script name and target are defined and valid
+
     if (!script || typeof script !== "string" || !ns.fileExists(script, "home")) {
         await log(\`Invalid script name: \${script}\`);
         ns.tprint(\`Error: Invalid script name: \${script}\`);
@@ -130,7 +126,14 @@ export async function main(ns) {
         "purchase-servers.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "purchase-servers", message);
-    const ram = ns.args[0];
+    const ram = parseInt(ns.args[0], 10);
+
+    if (isNaN(ram)) {
+        await log("Invalid RAM size argument. Expected a number.");
+        ns.tprint("Error: Invalid RAM size argument. Expected a number.");
+        return;
+    }
+
     const maxServers = ns.getPurchasedServerLimit();
     const prefix = "pserv-";
 
@@ -141,10 +144,17 @@ export async function main(ns) {
         }
     }
 }`,
-        "upgrade-servers.js": `/** @param {NS} ns) **/
+        "upgrade-servers.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "upgrade-servers", message);
-    const ram = ns.args[0];
+    const ram = parseInt(ns.args[0], 10);
+
+    if (isNaN(ram)) {
+        await log("Invalid RAM size argument. Expected a number.");
+        ns.tprint("Error: Invalid RAM size argument. Expected a number.");
+        return;
+    }
+
     const prefix = "pserv-";
 
     for (const server of ns.getPurchasedServers()) {
@@ -162,12 +172,26 @@ export async function main(ns) {
     const script = "hack-template.js";
     const ram = ns.args[0];
 
+    if (typeof ram !== 'number') {
+        await log("Invalid RAM size argument. Expected a number.");
+        ns.tprint("Error: Invalid RAM size argument. Expected a number.");
+        return;
+    }
+
     while (true) {
-        await ns.run("purchase-servers.js", 1, ram);
+        await ns.run("purchase-servers.js", 1, ram.toString());
         await ns.sleep(10000);
         await ns.run("find-best-target.js");
         await ns.sleep(2000);
-        const bestTarget = await ns.read("best-target.txt");
+        const bestTarget = await ns.read("best-target.txt").trim();
+        
+        if (!bestTarget || !ns.serverExists(bestTarget)) {
+            await log(\`Invalid target found: \${bestTarget}\`);
+            ns.tprint(\`Error: Invalid target found: \${bestTarget}\`);
+            await ns.sleep(60000); // Wait before trying again
+            continue;
+        }
+        
         await ns.run("deploy-hack.js", 1, script, bestTarget);
         await log("Automated purchase and deploy on target: " + bestTarget);
         await ns.sleep(60000);
@@ -641,7 +665,7 @@ export async function main(ns) {
                     const shares = ns.stock.getPosition(symbol)[0];
                     if (shares > 0) {
                         ns.stock.sell(symbol, shares);
-                        await log("Sold shares of " + symbol + " based on forecast: " + forecast);
+                        await log("Sold shares of " + symbol based on forecast: " + forecast);
                     }
                 }
             }
@@ -770,7 +794,7 @@ export async function main(ns) {
         // Monitor and optimize training
         if (player.strength < 500 || player.defense < 500 || player.dexterity < 500 || player.agility < 500) {
             const gym = "Powerhouse Gym";
-            const skill = player.strength < 500 ? "Strength" : player.defense < 500 ? "Defense" : player.dexterity < 500 ? "Dexterity" : "Agility";
+            const skill = player.strength < 500 ? "Strength" : player.defense < 500 ? "Defense" : player dexterity < 500 ? "Dexterity" : "Agility";
             ns.singularity.gymWorkout(gym, skill, true);
             await log("Training " + skill + " at " + gym);
         }
