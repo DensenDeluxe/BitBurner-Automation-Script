@@ -88,7 +88,7 @@ export async function main(ns) {
         }
     }
 }`,
-        "deploy-hack.js": `/** @param {NS} ns) **/
+        "deploy-hack.js": `/** @param {NS} ns **/
 export async function main(ns) {
     const log = async message => ns.run("log-output.js", 1, "deploy-hack", message);
     const script = ns.args[0];
@@ -352,8 +352,8 @@ export async function main(ns) {
             }
             while (ns.hacknet.getCoreUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeCore(i, 1);
-                nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
                 await log("Upgraded Hacknet node " + i + " cores");
+                nodeBudget = ns.getServerMoneyAvailable("home") * budgetFraction;
             }
             while (ns.hacknet.getCacheUpgradeCost(i, 1) < nodeBudget) {
                 ns.hacknet.upgradeCache(i, 1);
@@ -795,7 +795,7 @@ export async function main(ns) {
         }
 
         // Monitor and optimize training
-        if (player.strength < 500 || player.defense < 500 || player dexterity < 500 || player agility < 500) {
+        if (player.strength < 500 || player.defense < 500 || player.dexterity < 500 || player.agility < 500) {
             const gym = "Powerhouse Gym";
             const skill = player.strength < 500 ? "Strength" : player.defense < 500 ? "Defense" : player dexterity < 500 ? "Dexterity" : "Agility";
             ns.singularity.gymWorkout(gym, skill, true);
